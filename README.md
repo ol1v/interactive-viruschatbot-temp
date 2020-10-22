@@ -1,6 +1,6 @@
 # interactive-viruschatbot-temp
 
-A chatbot for MS Teams and Slack which looks up URLs, Filehashes and IPs.
+A chatbot for MS Teams and Slack checks  URLs, Filehashes and IPs for Malware.
 
 Get an API-key from VirusTotal and use it in project.
 
