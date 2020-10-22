@@ -5,6 +5,8 @@ const fetch = require("node-fetch");
 var inMemoryStorage = new builder.MemoryBotStorage();
 const connector = new builder.ChatConnector();
 
+var details;
+
 // ###################################
 // ########### BOT ###################
 // ###################################
@@ -13,7 +15,7 @@ const bot = new builder.UniversalBot(
     connector, [
         (session) => {
             if(session.message.text.includes('lookupurl')) {
-                session.beginDialog('lookupurl')
+                session.beginDialog('lookupurl', session.dialogData.details)
             } else{
                 session.beginDialog('howto');
             } 
@@ -37,45 +39,60 @@ const bot = new builder.UniversalBot(
 
     bot.dialog('lookupurl', [
         function (session) {    
-            
-                
-                let url = session.message.text.replace('lookupurl','')
-                session.send('Looking up ' + url).endDialog;
-            
-                // Check string format and decide if it's a filehash or url
-            
-                //Convert url to base64 string
-                const url_encoded = convert_to_base64(url)
-            
+
+            let url;
+            let url_encoded;
+
+                // Check if message contains lookupurl and cut to get URL to be scanned.
+                if(session.message.text.toString().includes('lookupurl')){
+                    
+                    url = session.message.text.replace('lookupurl','')
+                    session.send('Looking up ' + url).beginDialog;
+                    url_encoded = convert_to_base64(url) //Convert url to base64 string
+
+                } else if(session.message.text.toString().includes('Full Details') && details) {
+
+                    session.endDialog('Heres the full details, bye!')
+                }
+
+
+                // Send encoded URL to VirusTotal API
                 get_url(url_encoded, function(res){
                     session.sendTyping();
                     setTimeout(function() {
+                        details = res.details
+
+                        
+                        // Create HeroCard with buttons for interactive response
                         var msg = new builder.Message(session);
                         msg.attachmentLayout(builder.AttachmentLayout.carousel)
                         msg.attachments([
                             new builder.HeroCard(session)
                             .title('VirusTotal Results')
                             .subtitle(res.url)
-                            .text(`\r clean: ${res.clean} \r
-                                   suspicious: ${res.suspicious} \r
-                                   undetected: ${res.undetected} \r
-                                   malicious: ${res.malicious}`)
+                            .text(`\r Results: \r
+                                   Clean: ${res.clean} \r
+                                   Suspicious: ${res.suspicious} \r
+                                   Undetected: ${res.undetected} \r
+                                   Malicious: ${res.malicious}`)
                             .buttons([
-                                builder.CardAction.imBack(session, 'Full Details', 'See Details')
+                                builder.CardAction.imBack(session, 'Full Details', 'See Details'),
+                                builder.CardAction.imBack(session, 'exit', 'Exit')
                             ])
                         ])
                         session.send(msg)
+                        // session.endDialog(res.details.toString())
                     }, 3000);
                 })                    
                 
-                if(session.message.text.includes('Full Details')) {
-                    session.endDialog('Heres the full details!')
-                    
-                }
+              
             
         },
         function (session, result) {
-            session.endDialog(`List of commands: \r lookupurl www.example.com \r lookupip 123.123.123.123 \r lookupfilehash HsHQ1pswOS4OZ5o6mPZLwMOPAo`);
+            if(session.dialogData.details && result == 'Full Details') {
+                session.endDialog(session.dialogData.details);
+            }
+            
         }
     ])
 
